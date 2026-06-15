@@ -1,0 +1,4 @@
+a) You know your stuff, -1 < 5
+b) The number is not a power of 2
+c) 20577
+d) 1001000010100001
