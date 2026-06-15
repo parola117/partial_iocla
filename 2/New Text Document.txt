@@ -1,0 +1,47 @@
+apelare
+./file shaorma 
+pui
+
+Subpunctul a) Verificarea argumentelor din linia de comandă (argv[1])
+Cum funcționează main: Când un program primește argumente, sistemul de operare trimite numărul total de argumente (argc) în registrul rdi, și un pointer către un vector de string-uri (argv) în rsi.
+
+Problema volatilității: Regiștrii standard (ca rdi, rsi) sunt "volatili" – adică orice funcție apelată (cum ar fi printf sau strcmp) îi poate suprascrie și strica. De aceea, primul lucru pe care l-am făcut a fost să copiez argc în r12d și argv în r13 (regiștri "callee-saved", care sunt protejați și nu se pierd).
+
+Logica: Mai întâi verific dacă argc este cel puțin 2 (cmp r12d, 2). Dacă e mai mic, înseamnă că utilizatorul a rulat doar ./main fără să adauge niciun cuvânt, deci sar automat la afișarea "Not equal". Dacă este 2 sau mai mare, înseamnă că am un cuvânt pe poziția argv[1].
+
+Calculul offset-ului: Pentru a accesa argv[1], am adunat 8 la adresa vectorului ([r13 + 8]), deoarece un pointer pe un sistem pe 64 de biți ocupă exact 8 octeți. Astfel am sărit peste argv[0] (care este numele programului).
+
+Comparația: Am trimis pointerul lui argv[1] și pointerul textului meu "shaorma" către funcția din C strcmp. Dacă șirurile sunt identice, strcmp returnează 0 în eax. Am testat asta (test eax, eax), și dacă e 0, am afișat "Equal to shaorma".
+
+Subpunctul b) Funcția cu număr variabil de argumente (variadic_sum)
+Convenția de apel (System V ABI): În Linux x86-64, primele 6 argumente ale oricărei funcții se transmit strict prin regiștri: RDI, RSI, RDX, RCX, R8, R9. Dacă ai mai mult de 6 argumente, restul trebuie împinse pe stivă (push) înainte de apel.
+
+Maparea argumentelor: Funcția noastră are semnătura (int count, ...). Astfel:
+
+count ajunge mereu în rdi.
+
+Următoarele 5 argumente variabile ajung în regiștrii rămași (rsi până la r9).
+
+Logica funcției: Am adunat toți cei 5 regiștri în eax. Apoi m-am uitat la valoarea parametrului count (din edi).
+
+Dacă count este 6, mai am de recuperat un argument care a venit pe stivă. Îl extrag de la adresa [rbp + 16] (de ce 16? Pentru că la intrarea în funcție s-au adăugat 8 bytes cu adresa de întoarcere a lui call și încă 8 bytes cu push rbp).
+
+Dacă count este 7, mai am de recuperat încă un argument pe stivă, pe care îl găsesc la [rbp + 24].
+
+Apelul din main: Când am apelat funcția, a trebuit să fac manual push la argumentele extra și, foarte important, să aliniez stiva prin sub rsp, 8 înainte, altfel dădea Segmentation Fault. La final, le-am curățat scăzând add rsp, 16.
+
+Subpunctul c) Manipularea variabilelor de mediu (setenv și getenv)
+Ce trebuie să știi: Funcția C setenv(nume, valoare, suprascriere) are nevoie de 3 argumente: numele variabilei (în rdi), valoarea dorită (în rsi) și o bifă care spune dacă trebuie să suprascrie valoarea existentă (în rdx).
+
+Implementarea set_shaorma: Funcția mea primește ca argument direct valoarea dorită în rdi. Așa că am mutat această valoare în rsi. În rdi am încărcat textul hardcodat "SHAORMA", iar în rdx am pus valoarea 1 (conform cerinței că "dacă e deja setată, trebuie suprascrisă"). Apoi am apelat setenv.
+
+Testarea în main: Pentru a demonstra că a funcționat, am apelat funcția getenv("SHAORMA"). Aceasta caută prin sistem și returnează în rax adresa textului setat. Imediat am dat acel rax ca argument funcției printf pentru afișare.
+
+Subpunctul d) Alocarea dinamică a unui buffer local pe stivă (scanf)
+Alocarea: Pentru a face loc pe stivă de "20 de octeți" fără să folosești malloc, se efectuează o operație foarte simplă: tragi de pointerul stivei în jos. Am folosit sub rsp, 32 (am ales 32 în loc de 20 pentru a păstra stiva aliniată corect la multipli de 16).
+
+Bufferul: Odată făcut acest pas, rsp (vârful stivei) a devenit adresa de start a acestui "vector" gol, complet sigur pentru scriere.
+
+Citirea (scanf): I-am trimis lui scanf formatul %19s (în rdi) și adresa vectorului meu rsp (în rsi). Limitarea la 19 se pune pentru a asigura mereu prezența terminatorului de șir (\0) și a evita ca userul să provoace un Buffer Overflow dacă introduce mai mult de 20 de caractere.
+
+Salvarea și Eliberarea: După ce omul a tastat cuvântul (ex: "pui"), el s-a salvat perfect pe stivă la adresa rsp. Am trimis direct acel rsp funcției set_shaorma creată anterior. După printare, am "eliberat" memoria locală punând stiva la loc: add rsp, 32.
