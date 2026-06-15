@@ -1,0 +1,20 @@
+Scheletul fișierului file.asm conține deja declarația extern exported. Acesta este un indiciu uriaș că funcția pe care trebuie să o apelăm se numește exported.
+Dacă voiai să fii absolut sigur, puteai rula în terminal comanda:
+
+Bash
+nm obfuscated.o
+Aceasta ți-ar fi listat tabela de simboluri, unde ai fi văzut funcția exported marcată cu un T mare (ceea ce înseamnă Text/Funcție Globală, accesibilă din exterior), alături de o funcție unexported marcată cu t mic (funcție privată/statică).
+
+2. Cum aflăm ce argumente primește funcția?
+Dacă ne uităm tot în file.asm, observăm că ni s-a pus la dispoziție o variabilă gata făcută în secțiunea .data: șirul de caractere s db "obf", 0.
+Pentru a confirma utilitatea lui, dacă rulăm comanda pentru a extrage textele din binar:
+
+Bash
+strings obfuscated.o
+Pe lângă mesajul de succes cerut ("You found me when it was hard"), vom observa și apelul către funcția de sistem strcmp (String Compare).
+Din moment ce folosește strcmp, este clar că funcția exported așteaptă ca noi să îi trimitem un pointer către un string. Funcția va compara string-ul trimis de noi (adică "obf") cu o valoare ascunsă intern și, dacă se potrivesc, va afișa mesajul.
+
+3. Apelarea propriu-zisă:
+Conform convenției Linux x86-64, primul argument al oricărei funcții se trimite în registrul rdi. Așadar, folosim lea rdi, [rel s] pentru a încărca adresa șirului "obf", urmat de call exported pentru a declanșa verificarea din interiorul fișierului obfuscated.o.
+
+Pentru a rula și verifica, pur și simplu tastezi în consolă:

